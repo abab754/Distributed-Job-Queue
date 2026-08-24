@@ -12,7 +12,8 @@ import (
 	"encoding/json"
 	"time"
 	"log"
-
+	"errors"
+	"github.com/jackc/pgx/v5"
 )
 
 type Broker struct {
@@ -53,7 +54,50 @@ func (b *Broker) Submit(ctx context.Context, job Job) error{
 
 // Worker claims the next available job from the queue
 func (b *Broker) Claim(ctx context.Context) (*Job, error){
-	return nil, nil
+	// Creates a dedicated connection and wont return until explicitly told to do so
+	tx, err := b.Pool.Begin(ctx)
+	if err != nil {
+		log.Printf("Failed to start transaction: %v", err)
+		return nil, err
+	}
+	// defer is used to call Rollback in case the function crashes before commit is called
+	defer tx.Rollback(ctx)
+
+	// Since we want the oldest pending job, we query suing limit 1
+	query := `SELECT job_id, status, payload, attempt_count, created_at, idempotency_key FROM jobs 
+			WHERE status = 'pending'
+			ORDER BY created_at
+			LIMIT 1
+			FOR UPDATE SKIP LOCKED`
+
+	// Create a Job variable which we will use to store our result in and return it
+	var job Job
+
+	// Execute the Query and store the results in job variable using Scan()
+	err = tx.QueryRow(ctx, query).Scan(&job.ID, &job.Status, &job.Payload, &job.AttemptCount, &job.CreatedAt, &job.IdempotencyKey)
+	if err != nil {
+		// Handle the empty queue safely instead of crashing
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Println("No pending jobs found. Queue is empty.")
+			return nil, nil
+		}
+
+		// Handle when there is an actual error with the query
+		log.Printf("Failed to lock job: %v", err)
+		return nil, err
+	}
+	log.Printf("Successfully locked and retrieved Job ID: %s\n", job.ID)
+
+	// Perform atomic operations
+	// We want to update the lease to keep track if a particular job is taking too long to execute
+	_, err = tx.Exec(ctx, "UPDATE jobs SET lease = NOW() + INTERVAL '30 seconds', status = 'claimed' WHERE job_id = $1", job.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Safely end the transaction
+	err = tx.Commit(ctx)
+	return &job, err
 }
 
 // Worker Acknowledges the fact that it successfully completed its task

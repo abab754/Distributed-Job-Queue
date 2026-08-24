@@ -3,8 +3,9 @@ package main
 import(
 	"github.com/abab754/Distributed-Job-Queue/internal"
 	"context"
-	"encoding/json"
+	// "encoding/json"
 	"log"
+	"fmt"
 )
 
 //Main function for testing our internal code
@@ -20,15 +21,24 @@ func main(){
 	}
 
 	// Creates a test job with payload and the idempotency key
-	testJob1 := broker.Job{
-		Payload: json.RawMessage(`{"type": "transcribe", "audio_url": "s3://recordings/visit-101.wav", "physician": "Dr. Smith"}`),
-		IdempotencyKey: "transcribe-visit-101",
-	}
+	// testJob2 := broker.Job{
+	// 	Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-202", "template": "soap_note"}`),
+	// 	IdempotencyKey: "note-visit-202",
+	// }
 
 	// Call the Submit function and handle potential error
-	err = b.Submit(ctx, testJob1)
+	// err = b.Submit(ctx, testJob2)
+	// if err != nil{
+	// 	log.Printf("Failed to submit the TestJob: %v\n", err)
+	// 	return
+	// }
+
+	job, err := b.Claim(ctx)
+
 	if err != nil{
-		log.Printf("Failed to submit the TestJob: %v\n", err)
+		log.Printf("Failed to call Claim: %v\n", err)
 		return
 	}
+	fmt.Printf("%+v\n", *job) 
+
 }
