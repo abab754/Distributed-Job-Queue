@@ -14,61 +14,75 @@ func main(){
 	ctx := context.Background()
 	b, err := broker.NewBroker(ctx, "postgres://abhirambanda:postgres@localhost:5434/distributed_job_queue")
 
+	
 	// Handle the broker creation error
 	if err != nil{
 		log.Printf("Failed to create broker: %v\n", err)
 		return
 	}
+	worker := broker.Worker{
+		Broker: b,
+		Handler: func(job broker.Job) error{
+			fmt.Printf("Processing job: %s\n", job.ID)
+			return nil
+		},
+	}
 
 	// Testing Submit Method
 	// Creates a test job with payload and the idempotency key
-	testJob4 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-204", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-204",
+	testJob5 := broker.Job{
+		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-205", "template": "soap_note"}`),
+		IdempotencyKey: "note-visit-205",
 	}
 
 	// Call the Submit function and handle potential error
-	err = b.Submit(ctx, testJob4)
+	err = worker.Broker.Submit(ctx, testJob5)
 	if err != nil{
 		log.Printf("Failed to submit the TestJob: %v\n", err)
 		return
 	}
 
-	// Testing Claim Method
-	job, err := b.Claim(ctx)
+	worker.Start(ctx)
 
-	if err != nil{
-		log.Printf("Failed to call Claim: %v\n", err)
-		return
-	}
-	fmt.Printf("%+v\n", *job) 
+	
 
+	
 
-	// //Testing Complete Method
-	// uid := job.ID
-	// err = b.Complete(ctx, uid)
+	// // Testing Claim Method
+	// job, err := b.Claim(ctx)
+
 	// if err != nil{
-	// 	log.Printf("Failed to call Complete: %v\n", err)
+	// 	log.Printf("Failed to call Claim: %v\n", err)
+	// 	return
 	// }
-	// log.Printf("Success")
+	// fmt.Printf("%+v\n", *job) 
 
-	// Test the Fail Method
-	uid := job.ID
-	err = b.Fail(ctx, uid)
-	if err != nil{
-		log.Printf("Failed to call Fail: %v\n", err)
-	}
-	log.Printf("Failed once")
 
-	err = b.Fail(ctx, uid)
-	if err != nil{
-		log.Printf("Failed to call Fail: %v\n", err)
-	}
-	log.Printf("Failed twice")
+	// // //Testing Complete Method
+	// // uid := job.ID
+	// // err = b.Complete(ctx, uid)
+	// // if err != nil{
+	// // 	log.Printf("Failed to call Complete: %v\n", err)
+	// // }
+	// // log.Printf("Success")
 
-	err = b.Fail(ctx, uid)
-	if err != nil{
-		log.Printf("Failed to call Fail: %v\n", err)
-	}
-	log.Printf("Failed thrice")
+	// // Test the Fail Method
+	// uid := job.ID
+	// err = b.Fail(ctx, uid)
+	// if err != nil{
+	// 	log.Printf("Failed to call Fail: %v\n", err)
+	// }
+	// log.Printf("Failed once")
+
+	// err = b.Fail(ctx, uid)
+	// if err != nil{
+	// 	log.Printf("Failed to call Fail: %v\n", err)
+	// }
+	// log.Printf("Failed twice")
+
+	// err = b.Fail(ctx, uid)
+	// if err != nil{
+	// 	log.Printf("Failed to call Fail: %v\n", err)
+	// }
+	// log.Printf("Failed thrice")
 }
