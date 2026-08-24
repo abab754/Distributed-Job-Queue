@@ -22,13 +22,13 @@ func main(){
 
 	// Testing Submit Method
 	// Creates a test job with payload and the idempotency key
-	testJob3 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-203", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-203",
+	testJob4 := broker.Job{
+		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-204", "template": "soap_note"}`),
+		IdempotencyKey: "note-visit-204",
 	}
 
 	// Call the Submit function and handle potential error
-	err = b.Submit(ctx, testJob3)
+	err = b.Submit(ctx, testJob4)
 	if err != nil{
 		log.Printf("Failed to submit the TestJob: %v\n", err)
 		return
@@ -44,11 +44,31 @@ func main(){
 	fmt.Printf("%+v\n", *job) 
 
 
-	//Testing Complete Method
+	// //Testing Complete Method
+	// uid := job.ID
+	// err = b.Complete(ctx, uid)
+	// if err != nil{
+	// 	log.Printf("Failed to call Complete: %v\n", err)
+	// }
+	// log.Printf("Success")
+
+	// Test the Fail Method
 	uid := job.ID
-	err = b.Complete(ctx, uid)
+	err = b.Fail(ctx, uid)
 	if err != nil{
-		log.Printf("Failed to call Complete: %v\n", err)
+		log.Printf("Failed to call Fail: %v\n", err)
 	}
-	log.Printf("Success")
+	log.Printf("Failed once")
+
+	err = b.Fail(ctx, uid)
+	if err != nil{
+		log.Printf("Failed to call Fail: %v\n", err)
+	}
+	log.Printf("Failed twice")
+
+	err = b.Fail(ctx, uid)
+	if err != nil{
+		log.Printf("Failed to call Fail: %v\n", err)
+	}
+	log.Printf("Failed thrice")
 }
