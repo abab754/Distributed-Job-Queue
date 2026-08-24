@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"encoding/json"
 	"time"
+	"log"
 
 )
 
@@ -31,6 +32,22 @@ type Job struct{
 
 //Adds a job to the Queue(Database)
 func (b *Broker) Submit(ctx context.Context, job Job) error{
+	// Generate a new uuid for the jobID
+	idV4 := uuid.New()
+	job.ID = idV4
+
+	// Execute the Query - Only the fields provided, not the default fields
+	insertQuery := `INSERT INTO jobs (job_id, payload, idempotency_key)
+	 VALUES ($1, $2, $3);`
+
+	// Execute the query with the broker's Pool and handle error if needed
+	_, err := b.Pool.Exec(ctx, insertQuery, job.ID, job.Payload, job.IdempotencyKey)
+	if err != nil {
+		log.Printf("Failed to insert job: %v\n", err)
+		return err
+	}
+
+	fmt.Println("Successfully inserted job!")
 	return nil
 }
 
