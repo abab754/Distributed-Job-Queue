@@ -102,6 +102,17 @@ func (b *Broker) Claim(ctx context.Context) (*Job, error){
 
 // Worker Acknowledges the fact that it successfully completed its task
 func (b *Broker) Complete(ctx context.Context, jobId uuid.UUID) (error){
+	query := `UPDATE jobs SET status = 'completed', lease = NULL WHERE job_id = $1`
+
+	tag, err := b.Pool.Exec(ctx, query, jobId)
+	if err != nil {
+		log.Printf("Failed to lock job: %v", err)
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("no job found with id %s", jobId)
+	}
+	log.Printf("Completed job with job_id of: %s\n", jobId)
 	return nil
 }
 
