@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const MaxRetries = 3
+
 type Broker struct {
 	// Connection to Postgres db
 	Pool *pgxpool.Pool
@@ -102,11 +104,40 @@ func (b *Broker) Claim(ctx context.Context) (*Job, error){
 
 // Worker Acknowledges the fact that it successfully completed its task
 func (b *Broker) Complete(ctx context.Context, jobId uuid.UUID) (error){
+	query := `UPDATE jobs SET status = 'completed', lease = NULL WHERE job_id = $1`
+
+	tag, err := b.Pool.Exec(ctx, query, jobId)
+	if err != nil {
+		log.Printf("Failed to lock job: %v", err)
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("no job found with id %s", jobId)
+	}
+	log.Printf("Completed job with job_id of: %s\n", jobId)
 	return nil
 }
 
 // Worker acknowledges that it failed the task
 func (b *Broker) Fail(ctx context.Context, jobId uuid.UUID) (error){
+	// Conditional Query to set the status to dead if exceeds maxretries and pending otherwise	
+	query := `
+		UPDATE jobs 
+		SET attempt_count = attempt_count + 1,
+		lease = NULL,
+		status = CASE WHEN attempt_count + 1 >= $2 THEN 'dead' ELSE 'pending' END 
+		WHERE job_id = $1
+	`
+
+	tag, err := b.Pool.Exec(ctx, query, jobId, MaxRetries)
+	if err != nil {
+		log.Printf("Failed to lock job: %v", err)
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("no job found with id %s", jobId)
+	}
+	log.Printf("job with job_id of: %s failed. readded to queue with status 'pending'", jobId)
 	return nil
 }
 

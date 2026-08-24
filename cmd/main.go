@@ -3,7 +3,7 @@ package main
 import(
 	"github.com/abab754/Distributed-Job-Queue/internal"
 	"context"
-	// "encoding/json"
+	"encoding/json"
 	"log"
 	"fmt"
 )
@@ -20,19 +20,21 @@ func main(){
 		return
 	}
 
+	// Testing Submit Method
 	// Creates a test job with payload and the idempotency key
-	// testJob2 := broker.Job{
-	// 	Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-202", "template": "soap_note"}`),
-	// 	IdempotencyKey: "note-visit-202",
-	// }
+	testJob4 := broker.Job{
+		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-204", "template": "soap_note"}`),
+		IdempotencyKey: "note-visit-204",
+	}
 
 	// Call the Submit function and handle potential error
-	// err = b.Submit(ctx, testJob2)
-	// if err != nil{
-	// 	log.Printf("Failed to submit the TestJob: %v\n", err)
-	// 	return
-	// }
+	err = b.Submit(ctx, testJob4)
+	if err != nil{
+		log.Printf("Failed to submit the TestJob: %v\n", err)
+		return
+	}
 
+	// Testing Claim Method
 	job, err := b.Claim(ctx)
 
 	if err != nil{
@@ -41,4 +43,32 @@ func main(){
 	}
 	fmt.Printf("%+v\n", *job) 
 
+
+	// //Testing Complete Method
+	// uid := job.ID
+	// err = b.Complete(ctx, uid)
+	// if err != nil{
+	// 	log.Printf("Failed to call Complete: %v\n", err)
+	// }
+	// log.Printf("Success")
+
+	// Test the Fail Method
+	uid := job.ID
+	err = b.Fail(ctx, uid)
+	if err != nil{
+		log.Printf("Failed to call Fail: %v\n", err)
+	}
+	log.Printf("Failed once")
+
+	err = b.Fail(ctx, uid)
+	if err != nil{
+		log.Printf("Failed to call Fail: %v\n", err)
+	}
+	log.Printf("Failed twice")
+
+	err = b.Fail(ctx, uid)
+	if err != nil{
+		log.Printf("Failed to call Fail: %v\n", err)
+	}
+	log.Printf("Failed thrice")
 }
