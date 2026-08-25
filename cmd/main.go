@@ -6,13 +6,17 @@ import(
 	"encoding/json"
 	"log"
 	"fmt"
-	"time"
+	"os/signal"
+	"syscall"
 )
 
 //Main function for testing our internal code
 func main(){
-	// Create the context we'll need to pass in to our broker
-	ctx := context.Background()
+	// Create a context that listens for SIGINT and SIGTERM
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop() //cleans up resources when main exits
+
+	fmt.Println("Application started. Press Ctrl+C to exit.")
 
 	// Create a Broker by passing the context and connectionString
 	b, err := broker.NewBroker(ctx, "postgres://abhirambanda:postgres@localhost:5434/distributed_job_queue")
@@ -136,5 +140,6 @@ func main(){
 
 	// Start the go routine for the reaper
 	go reaper.Begin(ctx)
-	time.Sleep(500 * time.Second)
+	<-ctx.Done()
+	log.Println("Shutting down...")
 }

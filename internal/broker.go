@@ -80,7 +80,7 @@ func (b *Broker) Claim(ctx context.Context) (*Job, error){
 	if err != nil {
 		// Handle the empty queue safely instead of crashing
 		if errors.Is(err, pgx.ErrNoRows) {
-			log.Println("No pending jobs found. Queue is empty.")
+			log.Println("No pending jobs found. Queue is empty.\n")
 			return nil, nil
 		}
 

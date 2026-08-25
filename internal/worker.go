@@ -27,10 +27,21 @@ type Worker struct {
 func (worker *Worker) Start(ctx context.Context) error{
 
 	for {
+		select{
+		case <- ctx.Done():
+			log.Printf("Worker %s is shutting down", worker.ID)
+			return nil
+		default:
+		}
+		
 		// Testing Claim Method
 		job, err := worker.Broker.Claim(ctx)
 
 		if err != nil{
+			if ctx.Err() != nil{
+				log.Printf("Worker %s is shutting down", worker.ID)
+				return nil
+			}
 			log.Printf("Failed to call Claim in Worker class: %v\n", err)
 			return err
 		}
@@ -38,8 +49,13 @@ func (worker *Worker) Start(ctx context.Context) error{
 		
 		// If no Job was returned: wait a second and continue
 		if job == nil{
-			fmt.Printf("No jobs are available at the moment")
-			time.Sleep(1 * time.Second)
+			fmt.Printf("No jobs are available at the moment\n")
+			select{
+			case <- time.After(1 * time.Second):
+			case <- ctx.Done():
+				log.Printf("Worker %s is shutting down", worker.ID)
+				return nil 
+			}
 			continue
 		}
 		fmt.Printf("Worker %s claimed job: %s\n", worker.ID, job.ID)

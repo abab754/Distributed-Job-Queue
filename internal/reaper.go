@@ -24,22 +24,28 @@ func (reaper *Reaper) Begin(ctx context.Context) error{
 	fmt.Println("Loop started...")
 
 	// Loop will run every time a new value is received from ticker.C
-	for t := range ticker.C {
-		fmt.Printf("Tick action triggered at: %v\n", t.Format("15:04:05"))
-		
-		// Insert your recurring logic here
-		query := `UPDATE jobs SET status = 'pending', lease = NULL WHERE status = 'claimed' AND lease < NOW()` 
+	for{
+		select{
+			case <- ctx.Done():
+				log.Printf("Reaper is shutting down")
+				return nil
+			case t := <-ticker.C:
+				fmt.Printf("Tick action triggered at: %v\n", t.Format("15:04:05"))
+			
+				// Insert your recurring logic here
+				query := `UPDATE jobs SET status = 'pending', lease = NULL WHERE status = 'claimed' AND lease < NOW()` 
 
-		tag, err := reaper.Broker.Pool.Exec(ctx, query)
-		if err != nil {
-			log.Printf("Failed to execute query: %v\n", err)
-			return err
+				tag, err := reaper.Broker.Pool.Exec(ctx, query)
+				if err != nil {
+					log.Printf("Failed to execute query: %v\n", err)
+					return err
+				}
+				if tag.RowsAffected() == 0 {
+					fmt.Printf("no jobs were reaped")
+				}
+				log.Printf("Updated and Returned %d rows \n", tag.RowsAffected())
+
 		}
-		if tag.RowsAffected() == 0 {
-			fmt.Printf("no jobs were reaped")
-		}
-		log.Printf("Updated and Returned %d rows \n", tag.RowsAffected())
-		
 	}
 	return nil
 }
