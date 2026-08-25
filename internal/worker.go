@@ -10,6 +10,7 @@ import (
 // Worker struct- contains a reference to a Broker and a Handler function which will hold business logic
 type Worker struct {
 	// Reference to a Broker struct
+	ID string
 	Broker *Broker
 	Handler func(job Job) error
 }
@@ -34,13 +35,15 @@ func (worker *Worker) Start(ctx context.Context) error{
 			return err
 		}
 		
+		
 		// If no Job was returned: wait a second and continue
 		if job == nil{
 			fmt.Printf("No jobs are available at the moment")
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		fmt.Printf("Successfully called Claim in Worker class\n%+v\n", *job) 
+		fmt.Printf("Worker %s claimed job: %s\n", worker.ID, job.ID)
+		// fmt.Printf("Successfully called Claim in Worker class\n%+v\n", *job) 
 
 		// Call Handler
 		err = worker.Handler(*job)
