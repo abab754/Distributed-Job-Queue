@@ -6,6 +6,7 @@ import(
 	"encoding/json"
 	"log"
 	"fmt"
+	"time"
 )
 
 //Main function for testing our internal code
@@ -24,25 +25,41 @@ func main(){
 		Broker: b,
 		Handler: func(job broker.Job) error{
 			fmt.Printf("Processing job: %s\n", job.ID)
-			return nil
+			return fmt.Errorf("fake error")
 		},
+	}
+
+	reaper := broker.Reaper{
+		Broker: b,
 	}
 
 	// Testing Submit Method
 	// Creates a test job with payload and the idempotency key
-	testJob5 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-205", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-205",
+	testJob6 := broker.Job{
+		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-206", "template": "soap_note"}`),
+		IdempotencyKey: "note-visit-206",
 	}
 
 	// Call the Submit function and handle potential error
-	err = worker.Broker.Submit(ctx, testJob5)
+	err = worker.Broker.Submit(ctx, testJob6)
 	if err != nil{
 		log.Printf("Failed to submit the TestJob: %v\n", err)
 		return
 	}
 
-	worker.Start(ctx)
+	job, err := worker.Broker.Claim(ctx)
+
+	if err != nil{
+		log.Printf("Failed to call Claim in Worker class: %v\n", err)
+		return 
+	}
+	if job == nil{
+		return
+	}	
+
+	go reaper.Begin(ctx)
+	time.Sleep(45 * time.Second)
+	//worker.Start(ctx)
 
 	
 
