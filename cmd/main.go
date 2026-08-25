@@ -13,8 +13,9 @@ import(
 func main(){
 	// Create the context we'll need to pass in to our broker
 	ctx := context.Background()
-	b, err := broker.NewBroker(ctx, "postgres://abhirambanda:postgres@localhost:5434/distributed_job_queue")
 
+	// Create a Broker by passing the context and connectionString
+	b, err := broker.NewBroker(ctx, "postgres://abhirambanda:postgres@localhost:5434/distributed_job_queue")
 	
 	// Handle the broker creation error
 	if err != nil{
@@ -22,6 +23,7 @@ func main(){
 		return
 	}
 
+	// Create 3 Workers
 	worker1 := broker.Worker{
 		ID: "1",
 		Broker: b,
@@ -49,12 +51,12 @@ func main(){
 		},
 	}
 
+	// Create the Reaper
 	reaper := broker.Reaper{
 		Broker: b,
 	}
 
-	// Testing Submit Method
-	// Creates a test job with payload and the idempotency key
+	// Create 6 Test Jobs 
 	testJob1 := broker.Job{
 		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-101", "template": "soap_note"}`),
 		IdempotencyKey: "note-visit-101",
@@ -127,61 +129,12 @@ func main(){
 		return
 	}
 
-
-	// if err != nil{
-	// 	log.Printf("Failed to call Claim in Worker class: %v\n", err)
-	// 	return 
-	// }
-	// if job == nil{
-	// 	return
-	// }	
-
+	// Start the go routines for each worker
 	go worker1.Start(ctx)
 	go worker2.Start(ctx)
 	go worker3.Start(ctx)
+
+	// Start the go routine for the reaper
 	go reaper.Begin(ctx)
 	time.Sleep(500 * time.Second)
-	//worker.Start(ctx)
-
-	
-
-	
-
-	// // Testing Claim Method
-	// job, err := b.Claim(ctx)
-
-	// if err != nil{
-	// 	log.Printf("Failed to call Claim: %v\n", err)
-	// 	return
-	// }
-	// fmt.Printf("%+v\n", *job) 
-
-
-	// // //Testing Complete Method
-	// // uid := job.ID
-	// // err = b.Complete(ctx, uid)
-	// // if err != nil{
-	// // 	log.Printf("Failed to call Complete: %v\n", err)
-	// // }
-	// // log.Printf("Success")
-
-	// // Test the Fail Method
-	// uid := job.ID
-	// err = b.Fail(ctx, uid)
-	// if err != nil{
-	// 	log.Printf("Failed to call Fail: %v\n", err)
-	// }
-	// log.Printf("Failed once")
-
-	// err = b.Fail(ctx, uid)
-	// if err != nil{
-	// 	log.Printf("Failed to call Fail: %v\n", err)
-	// }
-	// log.Printf("Failed twice")
-
-	// err = b.Fail(ctx, uid)
-	// if err != nil{
-	// 	log.Printf("Failed to call Fail: %v\n", err)
-	// }
-	// log.Printf("Failed thrice")
 }
