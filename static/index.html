@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+</head>
+<body>
+
+<h1>Distributed Job Queue</h1>
+<table id="stats-table">
+    <thead>
+        <tr>
+            <th>Status</th>
+            <th>Count</th>
+        </tr>
+    </thead>
+    <tbody id="stats-body">
+
+    </tbody>
+  
+</table>
+
+<table id="jobs-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Attempts</th>
+            <th>Created At</th>
+        </tr>
+    </thead>
+    <tbody id="jobs-body">
+
+    </tbody>
+  
+</table>
+
+<script>
+        const intervalTime = 3000;
+        const url = '/api/stats';
+        const url2 = '/api/jobs';
+
+        function fetchData() {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const tableBody = document.getElementById('stats-body');
+                    tableBody.innerHTML = data.map(item => `
+                        <tr>
+                            <td>${item.status}</td>
+                            <td>${item.count}</td>
+                        </tr>
+                    `).join('');
+                    console.log('Data received:', data);
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                });
+        }
+
+        function fetchJobData() {
+            fetch(url2)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const tableBody = document.getElementById('jobs-body');
+                    tableBody.innerHTML = data.map(item => `
+                        <tr>
+                            <td>${item.ID}</td>
+                            <td>${item.Status}</td>
+                            <td>${item.AttemptCount}</td>
+                            <td>${item.CreatedAt}</td>
+                        </tr>
+                    `).join('');
+                    console.log('Data received:', data);
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                });
+        }
+
+        // Run immediately on page load
+        fetchData();
+        fetchJobData();
+
+        // Repeat every 3 seconds
+        setInterval(fetchData, intervalTime);
+        setInterval(fetchJobData, intervalTime);
+    </script>
+</body>
+</html>
