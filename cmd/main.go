@@ -8,6 +8,7 @@ import(
 	"fmt"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 //Main function for testing our internal code
@@ -27,119 +28,63 @@ func main(){
 		return
 	}
 
-	// Create 3 Workers
-	worker1 := broker.Worker{
-		ID: "1",
-		Broker: b,
-		Handler: func(job broker.Job) error{
-			fmt.Printf("Processing job: %s\n", job.ID)
-			return nil
-		},
-	}
-
-	worker2 := broker.Worker{
-		ID: "2",
-		Broker: b,
-		Handler: func(job broker.Job) error{
-			fmt.Printf("Processing job: %s\n", job.ID)
-			return nil
-		},
-	}
-
-	worker3 := broker.Worker{
-		ID: "3",
-		Broker: b,
-		Handler: func(job broker.Job) error{
-			fmt.Printf("Processing job: %s\n", job.ID)
-			return nil
-		},
-	}
-
 	// Create the Reaper
 	reaper := broker.Reaper{
 		Broker: b,
 	}
 
-	// Create 6 Test Jobs 
-	testJob1 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-101", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-101",
+	// Create n amount of test jobs - for dashboard and throughput numbers
+	for i:=0; i < 100; i++{
+		// Makes sure each has a unique idempotency key
+		testJob1 := broker.Job{
+			Payload: json.RawMessage(fmt.Sprintf(`{"type": "generate_note", "visit_id": "visit-%d", "template": "soap_note"}`, i)),
+			IdempotencyKey: fmt.Sprintf("note-visit-%d", i),
+		}
+		
+		err = b.Submit(ctx, testJob1)
+		if err != nil{
+			log.Printf(fmt.Sprintf("Failed to submit the TestJob%d: %v\n", i, err))
+			return
+		}
 	}
 
-	// Call the Submit function and handle potential error
-	err = worker1.Broker.Submit(ctx, testJob1)
-	if err != nil{
-		log.Printf("Failed to submit the TestJob1: %v\n", err)
-		return
+	// Create n amount of workers to complete the jobs
+	workers := make([]broker.Worker, 10)
+	for i := 0; i < 10; i++ {
+		workers[i] = broker.Worker{
+			ID: fmt.Sprintf("%d", i+1),
+			Broker: b,
+			Handler: func(job broker.Job) error {
+				fmt.Printf("Processing job: %s\n", job.ID)
+				time.Sleep(200 * time.Millisecond)
+				return nil
+			},
+		}
 	}
 
-	testJob2 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-201", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-201",
+	// Start each worker in its own go routine
+	for i := range workers{
+		go workers[i].Start(ctx)
 	}
 
-	// Call the Submit function and handle potential error
-	err = worker1.Broker.Submit(ctx, testJob2)
-	if err != nil{
-		log.Printf("Failed to submit the TestJob2: %v\n", err)
-		return
-	}
+	// Keep track of the time to measure how long it takes to finish all jobs
+	start := time.Now()
 
-	testJob3 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-301", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-301",
+	// Loop which polls the db to query if all jobs were done. if the number matches, get the duration
+	for {
+		var count int
+		b.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM jobs WHERE status = 'completed'").Scan(&count)
+		if count >= 100 {
+			duration := time.Since(start)
+			fmt.Printf("Processed 1000 jobs across 10 workers in %v\n", duration)
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
-
-	// Call the Submit function and handle potential error
-	err = worker1.Broker.Submit(ctx, testJob3)
-	if err != nil{
-		log.Printf("Failed to submit the TestJob3: %v\n", err)
-		return
-	}
-
-	testJob4 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-401", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-401",
-	}
-
-	// Call the Submit function and handle potential error
-	err = worker1.Broker.Submit(ctx, testJob4)
-	if err != nil{
-		log.Printf("Failed to submit the TestJob4: %v\n", err)
-		return
-	}
-
-	testJob5 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-501", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-501",
-	}
-
-	// Call the Submit function and handle potential error
-	err = worker1.Broker.Submit(ctx, testJob5)
-	if err != nil{
-		log.Printf("Failed to submit the TestJob5: %v\n", err)
-		return
-	}
-
-	testJob6 := broker.Job{
-		Payload: json.RawMessage(`{"type": "generate_note", "visit_id": "visit-601", "template": "soap_note"}`),
-		IdempotencyKey: "note-visit-601",
-	}
-
-	// Call the Submit function and handle potential error
-	err = worker1.Broker.Submit(ctx, testJob6)
-	if err != nil{
-		log.Printf("Failed to submit the TestJob6: %v\n", err)
-		return
-	}
-
-	// Start the go routines for each worker
-	go worker1.Start(ctx)
-	go worker2.Start(ctx)
-	go worker3.Start(ctx)
 
 	// Start the go routine for the reaper
 	go reaper.Begin(ctx)
 	<-ctx.Done()
+	
 	log.Println("Shutting down...")
 }
